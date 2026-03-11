@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>반의어 터치 게임</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;800;900&display=swap');
+    body { font-family: 'Noto Sans KR', sans-serif; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+    
+    .pop-in { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    .modal-in { animation: fadeIn 0.3s ease-out forwards; }
+    
+    @keyframes popIn {
+      0% { opacity: 0; transform: scale(0.9) translateY(5px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes fadeIn {
+      0% { opacity: 0; backdrop-filter: blur(0px); }
+      100% { opacity: 1; backdrop-filter: blur(8px); }
+    }
+
+    .btn-click { transform: scale(0.92) !important; transition: transform 0.1s; }
+    .shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+    @keyframes shake {
+      10%, 90% { transform: translate3d(-1px, 0, 0); }
+      20%, 80% { transform: translate3d(2px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+      40%, 60% { transform: translate3d(4px, 0, 0); }
+    }
+  </style>
+</head>
+<body class="h-[100dvh] w-screen flex flex-col bg-gradient-to-br from-indigo-50 via-white to-blue-50 text-slate-800 overflow-hidden">
+
+  <main class="flex-1 w-full max-w-6xl mx-auto flex flex-col p-2 md:p-4 overflow-hidden min-h-0">
+    
+    <header class="flex-shrink-0 w-full flex items-center justify-between gap-2 mb-2 md:mb-4 h-10 md:h-12 relative">
+      <h1 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-blue-600 tracking-tight drop-shadow-sm flex-grow">
+        ✨ 반의어 터치 게임
+      </h1>
+      <button id="restart-btn" onclick="startGame()" class="hidden flex-shrink-0 rounded-full px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-lg font-bold bg-blue-100 text-blue-700 active:scale-95 transition-transform">
+        🔄 다시 시작
+      </button>
+    </header>
+
+    <div class="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
+      
+      <div class="flex flex-col gap-2 md:gap-4 w-full h-full min-h-0">
+        
+        <div class="flex-shrink-0 grid grid-cols-3 gap-2 md:gap-4">
+          <div class="rounded-2xl bg-white p-2 md:p-3 shadow-sm border border-slate-100 flex flex-col items-center justify-center">
+            <span class="text-[10px] md:text-sm font-bold text-slate-400 mb-0.5">⏰ 남은 시간</span>
+            <span id="ui-time" class="text-xl md:text-3xl lg:text-4xl font-black text-rose-500">60초</span>
+          </div>
+          <div class="rounded-2xl bg-white p-2 md:p-3 shadow-sm border border-slate-100 flex flex-col items-center justify-center">
+            <span class="text-[10px] md:text-sm font-bold text-slate-400 mb-0.5">🏆 맞힌 개수</span>
+            <span id="ui-score" class="text-xl md:text-3xl lg:text-4xl font-black text-amber-500">0개</span>
+          </div>
+          <div class="rounded-2xl bg-white p-2 md:p-3 shadow-sm border border-slate-100 flex flex-col items-center justify-center">
+            <span class="text-[10px] md:text-sm font-bold text-slate-400 mb-0.5">🔥 연속 정답</span>
+            <span id="ui-streak" class="text-xl md:text-3xl lg:text-4xl font-black text-emerald-500">0</span>
+          </div>
+        </div>
+
+        <div class="flex-shrink-0 h-2 md:h-3 w-full bg-slate-200 rounded-full overflow-hidden shadow-inner">
+          <div id="ui-progress" class="h-full bg-blue-500 transition-all duration-1000 ease-linear" style="width: 100%"></div>
+        </div>
+
+        <div class="flex-1 rounded-2xl md:rounded-[2rem] border-4 border-white shadow-xl bg-white/90 backdrop-blur-md p-3 md:p-6 flex flex-col justify-between min-h-0">
+          
+          <div id="game-area" class="hidden flex-col h-full min-h-0">
+            <div class="flex-shrink-0 text-center mb-2 md:mb-4">
+              <p class="text-xs md:text-lg font-bold text-blue-400 mb-1 md:mb-2">이 낱말과 뜻이 반대인 반의어는?</p>
+              <div id="current-word" class="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight text-slate-800 pop-in py-1 md:py-2">단어</div>
+            </div>
+
+            <div id="choices-area" class="flex-1 grid grid-cols-2 grid-rows-2 gap-2 md:gap-4 min-h-0">
+              </div>
+            
+            <p id="feedback-msg" class="flex-shrink-0 text-center text-sm md:text-xl font-bold h-6 md:h-8 mt-2 transition-opacity"></p>
+          </div>
+
+          <div id="waiting-area" class="text-center m-auto flex flex-col items-center justify-center">
+            <button onclick="startGame()" class="rounded-full px-12 py-4 md:px-20 md:py-6 text-2xl md:text-4xl font-black bg-blue-500 text-white shadow-[0_10px_25px_rgba(59,130,246,0.4)] transition-transform active:scale-95 hover:bg-blue-600 tracking-wide border-4 border-blue-400">
+              게임 시작
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="hidden xl:flex flex-col w-[300px] h-full flex-shrink-0">
+        <div class="rounded-3xl border-4 border-white shadow-xl bg-white/90 p-6 flex-grow flex flex-col">
+          <h2 class="text-2xl font-bold text-slate-700 mb-4 border-b-2 border-slate-100 pb-3">📝 게임 방법</h2>
+          <div class="space-y-4 text-base font-medium text-slate-600">
+            <p class="flex items-start gap-2"><span class="text-xl">1️⃣</span> <span>가운데 나타난 낱말을 읽어보세요.</span></p>
+            <p class="flex items-start gap-2"><span class="text-xl">2️⃣</span> <span>4개의 보기 중에서 뜻이 반대인 <b>'반의어'</b>를 터치하세요.</span></p>
+            <p class="flex items-start gap-2"><span class="text-xl">3️⃣</span> <span>60초 동안 최대한 많이 찾아보세요!</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="flex-shrink-0 w-full bg-slate-200 text-slate-500 py-2 md:py-3 px-3 md:px-4 border-t-4 border-slate-300 z-10">
+    <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div class="text-xs md:text-sm font-semibold text-center sm:text-left">
+        <span class="text-slate-600 flex items-center justify-center sm:justify-start gap-2">📂 선생님 단어장 설정</span>
+      </div>
+      <div class="flex flex-row gap-2 w-full sm:w-auto justify-center">
+        <button onclick="downloadTemplate()" class="rounded-lg border-2 border-slate-400 px-2 py-1 md:px-3 md:py-1.5 text-[10px] md:text-xs font-bold hover:bg-slate-300 transition-colors">
+          📥 양식 다운로드
+        </button>
+        <input type="file" id="file-input" accept=".csv" class="block w-48 md:w-auto text-[10px] md:text-xs file:mr-2 file:py-1 md:file:py-1.5 file:px-2 md:file:px-3 file:rounded-lg file:border-0 file:font-bold file:bg-white file:text-slate-600 hover:file:bg-slate-50 cursor-pointer" onchange="handleFileUpload(event)" />
+      </div>
+    </div>
+    <p id="upload-msg" class="text-center mt-1 text-xs font-bold hidden max-w-6xl mx-auto bg-white p-1.5 rounded-lg"></p>
+  </footer>
+
+  <div id="game-over-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 modal-in">
+    <div class="bg-white rounded-[2rem] md:rounded-[3rem] shadow-2xl w-full max-w-md md:max-w-xl overflow-hidden text-center border-4 md:border-8 border-blue-400 flex flex-col max-h-[90dvh]">
+      <div class="bg-blue-500 text-white py-4 md:py-6 flex-shrink-0">
+        <h2 class="text-2xl md:text-5xl font-black tracking-tight text-yellow-300 drop-shadow-md">🎉 게임 종료!</h2>
+      </div>
+      <div class="p-4 md:p-8 space-y-4 md:space-y-6 overflow-y-auto">
+        <p class="text-lg md:text-2xl font-bold text-slate-600">
+          60초 동안 무려 <br class="hidden md:block" />
+          <span id="final-score" class="text-4xl md:text-6xl font-black text-blue-600">0</span><span class="text-xl md:text-3xl">개의 반의어를 찾았어요!</span>
+        </p>
+        
+        <div class="grid grid-cols-2 gap-2 md:gap-4">
+          <div class="bg-slate-50 p-2 md:p-4 rounded-xl md:rounded-2xl border-2 border-slate-100">
+            <p class="text-[10px] md:text-sm text-slate-400 font-bold mb-1">최고 연속 정답</p>
+            <p class="text-xl md:text-3xl font-black text-emerald-500"><span id="final-best-streak">0</span>번</p>
+          </div>
+          <div class="bg-slate-50 p-2 md:p-4 rounded-xl md:rounded-2xl border-2 border-slate-100">
+            <p class="text-[10px] md:text-sm text-slate-400 font-bold mb-1">정답 정확도</p>
+            <p class="text-xl md:text-3xl font-black text-rose-500"><span id="final-accuracy">0</span>%</p>
+          </div>
+        </div>
+
+        <div class="flex gap-2 md:gap-4 mt-2 md:mt-4">
+          <button onclick="startGame()" class="flex-1 rounded-xl md:rounded-full py-3 md:py-4 text-base md:text-2xl font-bold bg-amber-400 text-amber-900 shadow-xl transition-transform active:scale-95">
+            🔄 다시 도전
+          </button>
+          <button onclick="goToHome()" class="flex-1 rounded-xl md:rounded-full py-3 md:py-4 text-base md:text-2xl font-bold bg-slate-200 text-slate-700 shadow-xl transition-transform active:scale-95 hover:bg-slate-300">
+            🏠 처음으로
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SAMPLE_CSV_DATA = `제시어,정답,오답1,오답2,오답3,오답4,오답5
+크다,작다,길다,높다,넓다,무겁다,많다
+많다,적다,크다,길다,높다,밝다,무겁다
+길다,짧다,작다,낮다,좁다,가볍다,적다
+높다,낮다,짧다,작다,좁다,가볍다,적다
+넓다,좁다,짧다,작다,낮다,가볍다,적다
+무겁다,가볍다,작다,짧다,낮다,좁다,적다
+밝다,어둡다,맑다,흐리다,뜨겁다,차갑다,기쁘다
+덥다,춥다,뜨겁다,차갑다,따뜻하다,시원하다,어둡다
+뜨겁다,차갑다,덥다,춥다,따뜻하다,시원하다,어둡다
+빠르다,느리다,급하다,바쁘다,가볍다,무겁다,조용하다
+기쁘다,슬프다,즐겁다,신나다,화나다,우울하다,무섭다
+조용하다,시끄럽다,고요하다,잠잠하다,빠르다,느리다,어둡다
+깨끗하다,더럽다,맑다,흐리다,밝다,어둡다,차갑다
+가깝다,멀다,길다,짧다,넓다,좁다,높다
+가다,오다,서다,앉다,걷다,뛰다,멈추다
+열다,닫다,잠그다,풀다,켜다,끄다,막다
+시작,끝,처음,나중,출발,도착,원인
+두껍다,얇다,굵다,가늘다,무겁다,가볍다,크다
+부지런하다,게으르다,성실하다,착하다,나쁘다,똑똑하다,어리석다
+위,아래,앞,뒤,안,밖,옆
+앞,뒤,위,아래,안,밖,옆
+안,밖,위,아래,앞,뒤,옆
+울다,웃다,슬프다,기쁘다,화내다,소리치다,속삭이다
+승리,패배,성공,실패,우승,탈락,시작
+성공,실패,승리,패배,시작,끝,원인
+가득하다,비어있다,많다,적다,크다,작다,넓다
+강하다,약하다,튼튼하다,단단하다,무겁다,가볍다,크다
+거칠다,부드럽다,딱딱하다,단단하다,차갑다,뜨겁다,무겁다
+기억하다,잊어버리다,생각하다,상상하다,말하다,듣다,쓰다
+단단하다,무르다,튼튼하다,강하다,딱딱하다,부드럽다,약하다
+단순하다,복잡하다,쉽다,어렵다,가볍다,무겁다,빠르다
+마르다,젖다,건조하다,촉촉하다,뜨겁다,차갑다,덥다
+바쁘다,한가하다,급하다,빠르다,느리다,게으르다,부지런하다
+부족하다,충분하다,모자라다,많다,적다,넘치다,가득하다
+위험하다,안전하다,무섭다,두렵다,편안하다,불안하다,조심하다
+정확하다,틀리다,맞다,확실하다,비슷하다,다르다,이상하다
+친절하다,불친절하다,상냥하다,착하다,나쁘다,고약하다,무섭다
+편안하다,불편하다,안전하다,위험하다,기쁘다,슬프다,행복하다
+행복하다,불행하다,기쁘다,슬프다,즐겁다,우울하다,화나다
+흐리다,맑다,어둡다,밝다,깨끗하다,더럽다,투명하다`;
+
+    const GAME_TIME = 60;
+    const CHOICES_PER_ROUND = 4;
+
+    let wordBank = [];
+    let timeLeft = GAME_TIME;
+    let started = false;
+    let gameOver = false;
+    let score = 0;
+    let attempts = 0;
+    let streak = 0;
+    let bestStreak = 0;
+    let usedIndices = []; 
+    let currentRound = null;
+    let timerInterval = null;
+    let isChoiceLocked = false;
+
+    function parseCSV(csvText) {
+      const lines = csvText.split("\n").map(line => line.trim()).filter(line => line);
+      const words = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(",").map(c => c.trim());
+        if (cols.length >= 3) {
+          words.push({ word: cols[0], correct: cols[1], wrong: cols.slice(2).filter(w => w !== "") });
+        }
+      }
+      return words;
+    }
+
+    function shuffle(array) {
+      const copied = [...array];
+      for (let i = copied.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copied[i], copied[j]] = [copied[j], copied[i]];
+      }
+      return copied;
+    }
+
+    wordBank = parseCSV(SAMPLE_CSV_DATA);
+
+    function downloadTemplate() {
+      const blob = new Blob(["\uFEFF" + SAMPLE_CSV_DATA], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "반의어단어장_기본양식.csv";
+      link.click();
+    }
+
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      const msgEl = document.getElementById('upload-msg');
+      
+      reader.onload = function(e) {
+        try {
+          const text = e.target.result;
+          const newWordBank = parseCSV(text);
+          if (newWordBank.length < 5) throw new Error("최소 5개 이상의 단어가 필요합니다.");
+
+          wordBank = newWordBank;
+          usedIndices = []; 
+          
+          msgEl.className = "text-center mt-1 text-xs md:text-sm font-bold block max-w-6xl mx-auto p-1.5 rounded-lg bg-emerald-100 text-emerald-700";
+          msgEl.innerText = `✅ 성공! 새로운 단어장이 적용되었습니다.`;
+        } catch (error) {
+          msgEl.className = "text-center mt-1 text-xs md:text-sm font-bold block max-w-6xl mx-auto p-1.5 rounded-lg bg-rose-100 text-rose-700";
+          msgEl.innerText = `⚠️ 단어장 오류: 양식을 다시 확인해 주세요.`;
+        }
+      };
+      reader.readAsText(file, "utf-8");
+    }
+
+    function buildRound() {
+      let availableIndices = wordBank.map((_, i) => i).filter(i => !usedIndices.includes(i));
+      if (availableIndices.length === 0) {
+        usedIndices = [];
+        availableIndices = wordBank.map((_, i) => i);
+      }
+
+      const index = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+      const entry = wordBank[index];
+      
+      let wrongChoices = shuffle(entry.wrong).slice(0, CHOICES_PER_ROUND - 1);
+      while(wrongChoices.length < CHOICES_PER_ROUND - 1) { wrongChoices.push("오답"); }
+
+      const choices = shuffle([
+        ...wrongChoices.map(text => ({ text, isCorrect: false })),
+        { text: entry.correct, isCorrect: true }
+      ]);
+
+      usedIndices.push(index);
+      return { word: entry.word, answer: entry.correct, choices };
+    }
+
+    function startGame() {
+      clearInterval(timerInterval);
+      timeLeft = GAME_TIME;
+      score = 0;
+      attempts = 0;
+      streak = 0;
+      bestStreak = 0;
+      started = true;
+      gameOver = false;
+      isChoiceLocked = false;
+
+      document.getElementById('game-over-modal').classList.add('hidden');
+      document.getElementById('waiting-area').classList.add('hidden');
+      document.getElementById('game-area').classList.remove('hidden');
+      document.getElementById('game-area').classList.add('flex');
+      document.getElementById('restart-btn').classList.remove('hidden'); 
+      
+      updateStats();
+      nextRound();
+
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById('ui-time').innerText = `${timeLeft}초`;
+        document.getElementById('ui-progress').style.width = `${(timeLeft / GAME_TIME) * 100}%`;
+        
+        if (timeLeft <= 0) endGame();
+      }, 1000);
+    }
+
+    function goToHome() {
+      document.getElementById('game-over-modal').classList.add('hidden');
+      document.getElementById('game-area').classList.add('hidden');
+      document.getElementById('game-area').classList.remove('flex');
+      document.getElementById('waiting-area').classList.remove('hidden');
+      document.getElementById('restart-btn').classList.add('hidden');
+      
+      document.getElementById('ui-time').innerText = `${GAME_TIME}초`;
+      document.getElementById('ui-score').innerText = `0개`;
+      document.getElementById('ui-streak').innerText = `0`;
+      document.getElementById('ui-progress').style.width = `100%`;
+    }
+
+    function nextRound() {
+      currentRound = buildRound();
+      isChoiceLocked = false;
+      
+      const wordEl = document.getElementById('current-word');
+      wordEl.classList.remove('pop-in');
+      void wordEl.offsetWidth; 
+      wordEl.innerText = currentRound.word;
+      wordEl.classList.add('pop-in');
+
+      const choicesArea = document.getElementById('choices-area');
+      choicesArea.innerHTML = '';
+      currentRound.choices.forEach((choice) => {
+        const btn = document.createElement('button');
+        btn.className = "w-full h-full rounded-2xl md:rounded-3xl border-4 border-slate-200 bg-white text-slate-700 text-xl md:text-3xl lg:text-4xl font-bold shadow-sm transition-transform active:scale-95 active:bg-slate-100 flex items-center justify-center break-keep leading-tight";
+        btn.innerText = choice.text;
+        btn.onclick = () => handleChoice(choice, btn);
+        choicesArea.appendChild(btn);
+      });
+
+      const feedbackMsg = document.getElementById('feedback-msg');
+      feedbackMsg.style.opacity = '0';
+    }
+
+    function handleChoice(choice, btnElement) {
+      if (!started || gameOver || isChoiceLocked) return;
+      isChoiceLocked = true;
+      attempts++;
+
+      btnElement.classList.add('btn-click');
+      setTimeout(() => btnElement.classList.remove('btn-click'), 150);
+
+      const feedbackMsg = document.getElementById('feedback-msg');
+      feedbackMsg.style.opacity = '1';
+
+      if (choice.isCorrect) {
+        score++;
+        streak++;
+        if (streak > bestStreak) bestStreak = streak;
+        
+        btnElement.className = "w-full h-full rounded-2xl md:rounded-3xl border-4 border-emerald-400 bg-emerald-100 text-emerald-800 text-xl md:text-3xl lg:text-4xl font-bold shadow-sm transition-transform flex items-center justify-center break-keep leading-tight";
+        feedbackMsg.className = "text-center text-sm md:text-xl font-bold h-6 md:h-8 transition-opacity text-emerald-500";
+        feedbackMsg.innerText = "🎉 딩동댕! 잘했어요!";
+      } else {
+        streak = 0;
+        btnElement.className = "w-full h-full rounded-2xl md:rounded-3xl border-4 border-rose-400 bg-rose-100 text-rose-800 text-xl md:text-3xl lg:text-4xl font-bold shadow-sm transition-transform flex items-center justify-center break-keep leading-tight";
+        
+        document.getElementById('current-word').classList.add('shake');
+        setTimeout(() => document.getElementById('current-word').classList.remove('shake'), 400);
+
+        const btns = document.getElementById('choices-area').children;
+        for(let b of btns) {
+          if (b.innerText === currentRound.answer) {
+            b.classList.remove('border-slate-200', 'bg-white', 'text-slate-700');
+            b.classList.add('border-emerald-400', 'bg-emerald-100', 'text-emerald-800');
+          }
+        }
+        feedbackMsg.className = "text-center text-sm md:text-xl font-bold h-6 md:h-8 transition-opacity text-rose-500";
+        feedbackMsg.innerText = `앗! 정답은 '${currentRound.answer}'입니다.`;
+      }
+
+      updateStats();
+      setTimeout(() => { if (!gameOver) nextRound(); }, 600);
+    }
+
+    function updateStats() {
+      document.getElementById('ui-score').innerText = `${score}개`;
+      document.getElementById('ui-streak').innerText = streak;
+    }
+
+    function endGame() {
+      clearInterval(timerInterval);
+      started = false;
+      gameOver = true;
+      
+      const accuracy = attempts === 0 ? 0 : Math.round((score / attempts) * 100);
+      
+      document.getElementById('final-score').innerText = score;
+      document.getElementById('final-accuracy').innerText = accuracy;
+      document.getElementById('final-best-streak').innerText = bestStreak;
+      
+      document.getElementById('game-over-modal').classList.remove('hidden');
+      document.getElementById('restart-btn').classList.add('hidden'); 
+    }
+  </script>
+</body>
+</html>
